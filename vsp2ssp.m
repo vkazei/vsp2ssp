@@ -1,13 +1,16 @@
 % Creates data at the surface from VSP data ------------------------------
 % Vladimir Kazei, Oleg Ovcharenko and Yan Yang, KAUST 2019
 
+%% This program demenstrates how to redatum the DAS VSP data to virtual SSP data by interferometry method.
+
+
 close all; clear all;
 
 
-zsrc = 120; 
-xsrc = 100; 
+zsrc = 120; %% z coordinate index of sources 
+xsrc = 100; %% x coordinate index of sources
 
-nsrc = 15; dsrc = 1;
+nsrc = 15; dsrc = 1; %% nsrc--number of sources; dsrc--sources interval;
 recordVideoFlag = 1;
 
 % receivers on a horizontal line at depth
@@ -16,17 +19,17 @@ model_ghost_flag = 1;
 
 %% MODEL
 % Model dimensions
-nx = 501; nz = 211;
-dx = 10;    % [m]
+nx = 501; nz = 211; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
+dx = 10;    % [m] dx--interval of x coordinate index
 
 % Velocity
-vp = 2000.0 * ones(nz, nx);
+vp = 2000.0 * ones(nz, nx); %constant velocity 
 
 % velocity of compressional waves, [m/s]
 
 %% TIME STEPPING
 t_total = 4.0; % [sec] recording duration
-dt = 2e-3;
+dt = 2e-3; %[sec] time interval
 
 %% SOURCE
 f0 = 10.0;                          % dominant frequency of the wavelet
