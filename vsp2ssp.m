@@ -3,15 +3,20 @@
 
 close all; clear all;
 
-zsrc = 120; xsrc = 100; nsrc = 25; dsrc = 4;
 
-% receivers on a hozizontal line at depth
+zsrc = 120; 
+xsrc = 100; 
+
+nsrc = 15; dsrc = 1;
+recordVideoFlag = 1;
+
+% receivers on a horizontal line at depth
 rec_depth = 3;
 model_ghost_flag = 1;
 
 %% MODEL
 % Model dimensions
-nx = 601; nz = 451;
+nx = 501; nz = 211;
 dx = 10;    % [m]
 
 % Velocity
@@ -39,19 +44,23 @@ upscale = 4; % decimates data for correlations
 min_wavelengh = 0.5*min(vp(vp>330))/f0;     % shortest wavelength bounded by velocity in the air
 
 %% ABSORBING BOUNDARY (ABS)
-abs_thick = 100;%min(floor(0.15*nx), floor(0.15*nz)); % thicknes of the layer
+abs_thick = 50;%min(floor(0.15*nx), floor(0.15*nz)); % thicknes of the layer
 
 
 
-abs_rate = 0.2/abs_thick;                           % decay rate
+abs_rate = 0.3/abs_thick;                           % decay rate
 lmargin = [abs_thick abs_thick];
 rmargin = [abs_thick abs_thick];
 weights = ones(nz+2,nx+2);
 
 opts = v2struct();
 
+%% test modeling code
 imagesc(single_shot(opts, zsrc))
 caxis(caxis()/50);
+
+%% generate VSP data
+opts.fsFlag = 1;
 tic;
 parfor i=1:nsrc
     zsrc = dsrc*i + abs_thick;
@@ -60,8 +69,8 @@ end
 disp('DIRECT WAVE DATA GENERATED');
 toc;
 
-opts.vp(200:end,:) = 2500;
-
+opts.vp(abs_thick+100:end,:) = 2500;
+opts.fsFlag = 0;
 tic;
 parfor i=1:nsrc
     zsrc = dsrc*i + abs_thick;
@@ -90,6 +99,15 @@ t = linspace(0,t_total,nt);
 
 data_new_t_s_r = zeros(2*size(data_t_src_rec,1)-1,size(data_t_src_rec,3),size(data_t_src_rec,3));
 last_source =0;
+
+if ~exist('vido','var')
+    
+    vido = VideoWriter('blabla.avi');
+    
+    vido.FrameRate = 20;
+    open(vido);
+end
+
 for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/upscale)
     for i = 1:size(data_t_src_rec,3)
         t_src(i) = timeRefl(dx*new_sou*upscale, ...
@@ -98,7 +116,7 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
     for new_rec = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/upscale)
         traces_direct = squeeze(data_direct_t_src_rec(:,:,new_sou));
         traces_full = squeeze(data_t_src_rec(:,:,new_rec));
-        traces_refl = traces_full-data_ghost_t_src_rec(:,:,new_rec);
+        traces_refl = traces_full-data_direct_t_src_rec(:,:,new_rec);
         
         for real_rec = 1:size(data_t_src_rec,2)
             data_new_t_s_r(:, new_sou, new_rec) = data_new_t_s_r(:, new_sou, new_rec) + ...
@@ -107,45 +125,42 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
         if mod(new_rec, 10) == 0
             figure(555);
             subplot 121
-            imagesc([traces_full traces_refl traces_direct]);% ...
-            %flipud(squeeze(data_new_t_s_r(1:size(data_t_src_rec,1), new_sou, :))) ...
-            %squeeze(data_new_t_s_r(size(data_t_src_rec,1):end, new_sou, :)) ])
-            title('Receiver gathers full, multiple, direct')
+            imagesc([traces_full 10*traces_refl traces_direct]);% ...
+            title('Receiver gathers full, no direct, direct')
             caxis(caxis()/10);
             cax = caxis();
             
             subplot 122
             imagesc([],t, ...
-            squeeze(data_new_t_s_r(size(data_t_src_rec,1):end, ...
-            new_sou, :)));
+                squeeze(data_new_t_s_r(size(data_t_src_rec,1):end, ...
+                new_sou, :)));
             %caxis(cax);
             caxis auto
-            caxis(caxis()/10);
+            caxis(caxis()/5);
             title('New shot gather')
             hold on
             
             plot(t_src,'LineWidth',2,'Color','r');
-          
-            SP=new_sou+3*(new_sou-round(abs_thick/upscale)); 
-            line([SP SP],get(gca,'YLim'),'Color','g','LineWidth',3)
+            
+            
             
             SP_well = opts.xsrc/upscale;
             line([SP_well SP_well],get(gca,'YLim'),'Color','black','LineWidth',3)
+            
+            SP=SP_well+3*(new_sou-SP_well);
+            line([SP SP],get(gca,'YLim'),'Color','g','LineWidth',3)
             
             line([new_sou new_sou],get(gca,'YLim'),'Color','r','LineWidth',1)
             
             drawnow
             pause(0.01);
-            if ~exist('vido','var')
+            
+            if recordVideoFlag
                 
-                vido = VideoWriter('blabla.avi');
-                
-                vido.FrameRate = 20;
-                open(vido);
+                frame = getframe(gcf);
+                writeVideo(vido,frame);
             end
             
-            frame = getframe(gcf);
-            writeVideo(vido,frame);
         end
     end
     
