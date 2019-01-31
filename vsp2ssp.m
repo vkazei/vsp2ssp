@@ -3,23 +3,25 @@
 
 %% This program demenstrates how to redatum the DAS VSP data to virtual SSP data by interferometry method.
 
+%% variables in this program:
+%% (zsrc,isz)  -- source point coordinates
 
 close all; clear all;
 
 
-zsrc = 120; %% z coordinate index of sources 
-xsrc = 100; %% x coordinate index of sources
+zsrc = 1; %% z coordinate index of sources 
+xsrc = 7000; %% x coordinate index of sources
 
-nsrc = 15; dsrc = 1; %% nsrc--number of sources; dsrc--sources interval;
+nsrc = 2850; dsrc = 10; %% nsrc--number of sources; dsrc--sources interval;
 recordVideoFlag = 1;
 
 % receivers on a horizontal line at depth
-rec_depth = 3;
+rec_depth = 140;
 model_ghost_flag = 1;
 
 %% MODEL
 % Model dimensions
-nx = 501; nz = 211; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
+nx = 701; nz = 14; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
 dx = 10;    % [m] dx--interval of x coordinate index
 
 % Velocity
@@ -45,6 +47,7 @@ upscale = 4; % decimates data for correlations
 
 
 min_wavelengh = 0.5*min(vp(vp>330))/f0;     % shortest wavelength bounded by velocity in the air
+
 
 %% ABSORBING BOUNDARY (ABS)
 abs_thick = 50;%min(floor(0.15*nx), floor(0.15*nz)); % thicknes of the layer
