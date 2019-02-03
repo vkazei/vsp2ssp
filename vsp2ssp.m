@@ -9,19 +9,19 @@
 close all; clear all;
 
 
-zsrc = 1; %% z coordinate index of sources 
-xsrc = 7000; %% x coordinate index of sources
+zsrc = 100; %% z coordinate index of sources 
+xsrc = 70; %% x coordinate index of sources
 
-nsrc = 2850; dsrc = 10; %% nsrc--number of sources; dsrc--sources interval;
+nsrc = 100; dsrc = 1; %% nsrc--number of sources; dsrc--sources interval in grid points;
 recordVideoFlag = 1;
 
 % receivers on a horizontal line at depth
-rec_depth = 140;
+rec_depth = 3;
 model_ghost_flag = 1;
 
 %% MODEL
 % Model dimensions
-nx = 701; nz = 14; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
+nx = 170; nz = 200; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
 dx = 10;    % [m] dx--interval of x coordinate index
 
 % Velocity
@@ -58,6 +58,7 @@ abs_rate = 0.3/abs_thick;                           % decay rate
 lmargin = [abs_thick abs_thick];
 rmargin = [abs_thick abs_thick];
 weights = ones(nz+2,nx+2);
+IT_DISPLAY = 10; % display every .. snapshot for test source location
 
 opts = v2struct();
 
@@ -66,6 +67,7 @@ imagesc(single_shot(opts, zsrc))
 caxis(caxis()/50);
 
 %% generate VSP data
+opts.IT_DISPLAY = 100000; % don't display anything
 opts.fsFlag = 1;
 tic;
 parfor i=1:nsrc
@@ -199,7 +201,7 @@ v2struct(opts);
 rec_depth = rec_depth + abs_thick;
 
 dz = dx;    % [m]
-IT_DISPLAY = 10000;
+
 
 
 %dt = min(dt, 0.5 * min(dx,dz)/max(vp(:)));   % min grid space / max velocity
@@ -281,10 +283,11 @@ for it = 1:nt
     if mod(it,IT_DISPLAY) == 0
         fprintf('Time step: %d \t %.4f s\n',it, single(t(it)));
         imagesc(p3); colorbar;
-        caxis([-10 10])
         axis equal tight; colormap jet;
+        caxis([-10 10])
         title(['Step = ',num2str(it),'/',num2str(nt),', Time: ',sprintf('%.4f',t(it)),' sec']);
         drawnow;
+        pause(0.1);
     end
     seismogram(it,:) = p3(rec_depth,:);
     if model_ghost_flag
