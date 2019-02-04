@@ -8,12 +8,10 @@ run
 
 to create the redatumed data that is visualised below: 
 
-![](name-of-giphy.gif)
+![](virtualData.gif)
 
 Green line, dependent on the redatumed shot position, estimates the ray coverage. If the virtual receiver is further than this line away from the well, there exists a ray path of the firs order multiple hitting the well, redatumed source and virtual receiver at the same time.
 
 Computations are performed for sources located at the well efficiency.
-
-![](virtualData.gif)
 
 vladimir.kazei@kaust.edu.sa
