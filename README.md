@@ -1,6 +1,6 @@
 ## VSP to SSP
 
-This program redatums vertical seismic profile (VSP) data to virtual surface seismic profile (SSP) data by crosscorrelation of first order free-surface multiples from one shot at the surface (virtual receiver) with direct waves from another shot (shot), which follows from interferometric principles.
+This program redatums vertical seismic profile (VSP) data to virtual surface seismic profile (SSP) data by crosscorrelation of the first order free-surface multiples from one shot at the surface (virtual receiver) with direct waves from another shot (shot), which follows from interferometric principles.
 
 run 
 
