@@ -1,10 +1,7 @@
 ## VSP to SSP
 
-This program demenstrates how to redatum the DAS VSP data to virtual SSP data by interferometry method.
+This program redatums vertical seismic profile (VSP) data to virtual surface seismic profile (SSP) data by crosscorrelation of first order free-surface multiples to virtual receiver and direct waves from an actual shot, which follows from interferometric principles.
 
-TODO:
+![](virtualData.gif)
 
-*Explain here what is DAS, VSP and SSP
-
-*Set light-weight initial configs
 
