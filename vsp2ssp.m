@@ -4,9 +4,10 @@
 %% This program demonstrates how to redatum the DAS VSP data to virtual SSP data by crosscorrelation interferometry
 close all; clear all;
 
+%% Sources and reveivers
 
-zsrc = 100; %% z coordinate index of sources 
-xsrc = 70; %% x coordinate index of sources
+zsrc = 100;                 % z coordinate index of sources
+xsrc = 70;                  % x coordinate index of sources
 
 nsrc = 25; dsrc = 4; %% nsrc--number of sources; dsrc--sources interval in grid points;
 recordVideoFlag = 1;
@@ -15,44 +16,46 @@ recordVideoFlag = 1;
 rec_depth = 3;
 model_ghost_flag = 1;
 
-%% MODEL
+%% Velocity model
 % Model dimensions
-nx = 370; nz = 200; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
-dx = 10;    % [m] dx--interval of x coordinate index
+nx = 370;                   % horizontal (x) grid size in grid points
+nz = 200;                   % vertical (z) grid size in grid points
+dx = 10;                    % [m] interval of x coordinate index
+
 
 % Velocity
-vp = 2000.0 * ones(nz, nx); %constant velocity 
+vp = 2000.0 * ones(nz, nx); % velocity of compressional waves, [m/s]
 
-% velocity of compressional waves, [m/s]
+%% Time stepping
+t_total = 3.0;              % [sec] recording duration
+dt = 2e-3;                  %[sec] time interval
 
-%% TIME STEPPING
-t_total = 4.0; % [sec] recording duration
-dt = 2e-3; %[sec] time interval
+%% Source
+f0 = 10.0;                  % dominant frequency of the wavelet
+t0 = 1.2 / f0;              % half Ricker wavelet excitation time
+source_ampl = 1e10;         % amplitude coefficient
 
-%% SOURCE
-f0 = 10.0;                          % dominant frequency of the wavelet
-t0 = 1.2 / f0;                     % half Ricker wavelet excitation time
-source_ampl = 1e10;                      % amplitude coefficient
-
-x = xsrc;                 % source location along OX
+x = xsrc;                   % source location along OX
 
 fsFlag = 0;
 dt2 = dt^2;
 
-upscale = 4; % decimates data for correlations
+upscale = 4;                % decimates data for correlations
+
+
 min_wavelengh = 0.5*min(vp(vp>330))/f0;     % shortest wavelength bounded by velocity in the air
 
+%% Absorbing boundary (ABS)
+abs_thick = 50;%min(floor(0.15*nx), floor(0.15*nz)); % thickness of the layer
 
-%% ABSORBING BOUNDARY (ABS)
-abs_thick = 50;%min(floor(0.15*nx), floor(0.15*nz)); % thicknes of the layer
+abs_rate = 0.3/abs_thick;           % decay rate
+lmargin = [abs_thick abs_thick];    % thickness [top bottom]
+rmargin = [abs_thick abs_thick];    % thickness [left right]
+weights = ones(nz+2,nx+2);          % ABS mask
+IT_DISPLAY = 10;                    % display every .. snapshot for test source location
 
+opts = v2struct();                  % store all variables in a structure
 
-
-abs_rate = 0.3/abs_thick;                           % decay rate
-lmargin = [abs_thick abs_thick];
-rmargin = [abs_thick abs_thick];
-weights = ones(nz+2,nx+2);
-IT_DISPLAY = 10; % display every .. snapshot for test source location
 zsrcArr = dsrc*[1:nsrc] + abs_thick;
 
 opts = v2struct();
@@ -65,16 +68,20 @@ caxis(caxis()/50);
 opts.IT_DISPLAY = 100000; % don't display anything
 opts.fsFlag = 1;
 
-
+% Generate wave data with reflections from free surface in homogen model
+opts.fsFlag = 1;                    % free surface flag
 tic;
 parfor i=1:nsrc
+% forward modeling
     data_direct_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrcArr(i)),1/upscale);
 end
 disp('DIRECT WAVE DATA GENERATED');
 toc;
 
-opts.vp(abs_thick+100:end,:) = 2500;
-opts.fsFlag = 0;
+
+% Generate wave data without reflections from free surface in heter model
+opts.vp(abs_thick+100:end,:) = 2500;    % create layered velocity model
+opts.fsFlag = 0;                        % free surface flag
 tic;
 parfor i=1:nsrc
     data_ghost_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrcArr(i)),1/upscale);
@@ -82,6 +89,8 @@ end
 disp('GHOST NO FS DATA GENERATED');
 toc;
 
+
+% Generate wave data with reflections from free surface in heterogeneous model
 opts.fsFlag = 1;
 tic;
 parfor i=1:nsrc
@@ -92,14 +101,15 @@ toc;
 
 save('TRUE_DATA');
 
-%% correlating
+%% Correlating
 figure();
 newRecord = 1;
 load('TRUE_DATA');
-nt = size(data_t_src_rec,1);
+[nt, nsrc, nrec] = size(data_t_src_rec);
 t = linspace(0,t_total,nt);
 
-data_new_t_s_r = zeros(2*size(data_t_src_rec,1)-1,size(data_t_src_rec,3),size(data_t_src_rec,3));
+% data_new_t_s_r = zeros(2*size(data_t_src_rec,1)-1,size(data_t_src_rec,3),size(data_t_src_rec,3));
+data_new_t_s_r = zeros(2*nt-1, nrec, nrec);
 last_source =0;
 
 %if ~exist('vido','var')
@@ -118,7 +128,7 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
         traces_full = squeeze(data_t_src_rec(:,:,new_rec));
         traces_refl = traces_full-data_direct_t_src_rec(:,:,new_rec);
         
-        for real_rec = 1:size(data_t_src_rec,2)
+        for real_rec = 1:nsrc
             data_new_t_s_r(:, new_sou, new_rec) = data_new_t_s_r(:, new_sou, new_rec) + ...
                 xcorr(nmz(traces_refl(:,real_rec)),nmz(traces_direct(:,real_rec)));
         end
@@ -208,77 +218,72 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
             
         end
     end
-    
-    
 end
 
 
 %%
 % normalizes the data and corrects geometrical spreading
 function nmzz = nmz(a)
-nmzz = a/(max(abs(a(:)))+10^-30);% geometrical spreading -> .* (1:length(a))'.^0.5 ;
+    nmzz = a/(max(abs(a(:)))+10^-30);% geometrical spreading -> .* (1:length(a))'.^0.5 ;
 end
 
 function tr = timeRefl(xs, xr, refl_depth, vel)
-
-tr = sqrt((xs-xr).^2 + 4*refl_depth^2)/vel;
-
+    tr = sqrt((xs-xr).^2 + 4*refl_depth^2)/vel;
 end
 
 %% puts source to depth zsrc (kept se and returns seismogram at opts.z
 function seismogram = single_shot(opts, zsrc)
-% --------------------------------------------------------------
-% based on Oleg Ovcharenko and Vladimir Kazei, 2018
-% https://github.com/ovcharenkoo/WaveProp_in_MATLAB
+    % --------------------------------------------------------------
+    % based on Oleg Ovcharenko and Vladimir Kazei, 2018
+    % https://github.com/ovcharenkoo/WaveProp_in_MATLAB
 
-% Output every ... time steps
-opts.zsrc = zsrc;
-v2struct(opts);
-rec_depth = rec_depth + abs_thick;
-
-dz = dx;    % [m]
-
+    % Output every ... time steps
+    opts.zsrc = zsrc;
+    v2struct(opts);
+    rec_depth = rec_depth + abs_thick;
+    dz = dx;    % [m]
 
 
-%dt = min(dt, 0.5 * min(dx,dz)/max(vp(:)));   % min grid space / max velocity
-nt = ceil(t_total/dt);             % number of time steps
 
-CFL = max(vp(:)) * dt / min(dx,dz);
+    %dt = min(dt, 0.5 * min(dx,dz)/max(vp(:)));   % min grid space / max velocity
+    nt = ceil(t_total/dt);             % number of time steps
 
-t = [0:nt]*dt;
-t_n = pi*f0*(t-t0);   % normalized time for Ricker
-source_term = (1.0 - 2.0*(t_n.^2)).*exp(-t_n.^2);        % Ricker source time function (second derivative of a Gaussian):
-source_term = source_ampl * source_term * dt2 / (dx * dz);
+    CFL = max(vp(:)) * dt / min(dx,dz);
+
+    t = [0:nt]*dt;
+    t_n = pi*f0*(t-t0);   % normalized time for Ricker
+    source_term = (1.0 - 2.0*(t_n.^2)).*exp(-t_n.^2);        % Ricker source time function (second derivative of a Gaussian):
+    source_term = source_ampl * source_term * dt2 / (dx * dz);
 
 
-for iz = 1:nz+2
-    for ix = 1:nx+2
-        i = 0;
-        j = 0;
-        k = 0;
-        if (ix < lmargin(1) + 1)
-            i = lmargin(1) + 1 - ix;
-        end
-        if (iz < lmargin(2) + 1)
-            k = lmargin(2) + 1 - iz;
-            if fsFlag
-                k = 10^20;
+    for iz = 1:nz+2
+        for ix = 1:nx+2
+            i = 0;
+            j = 0;
+            k = 0;
+            if (ix < lmargin(1) + 1)
+                i = lmargin(1) + 1 - ix;
             end
-            
+            if (iz < lmargin(2) + 1)
+                k = lmargin(2) + 1 - iz;
+                if fsFlag
+                    k = 10^20;
+                end
+
+            end
+            if (nx - rmargin(1) < ix)
+                i = ix - nx + rmargin(1);
+            end
+            if (nz - rmargin(2) < iz)
+                k = iz - nz + rmargin(2);
+            end
+            if (i == 0 && j == 0 && k == 0)
+                continue
+            end
+            rr = abs_rate * abs_rate * double(i*i + j*j + k*k );
+            weights(iz,ix) = exp(-rr);
         end
-        if (nx - rmargin(1) < ix)
-            i = ix - nx + rmargin(1);
-        end
-        if (nz - rmargin(2) < iz)
-            k = iz - nz + rmargin(2);
-        end
-        if (i == 0 && j == 0 && k == 0)
-            continue
-        end
-        rr = abs_rate * abs_rate * double(i*i + j*j + k*k );
-        weights(iz,ix) = exp(-rr);
     end
-end
 
 % %% SUMMARY
 % fprintf('#################################################\n');
