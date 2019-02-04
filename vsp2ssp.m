@@ -1,18 +1,14 @@
 % Creates data at the surface from VSP data ------------------------------
-% Vladimir Kazei, Oleg Ovcharenko and Yan Yang, KAUST 2019
+% (c) Vladimir Kazei, Oleg Ovcharenko and Yan Yang, KAUST 2019
 
-%% This program demenstrates how to redatum the DAS VSP data to virtual SSP data by interferometry method.
-
-%% variables in this program:
-%% (zsrc,isz)  -- source point coordinates
-
+%% This program demonstrates how to redatum the DAS VSP data to virtual SSP data by crosscorrelation interferometry
 close all; clear all;
 
 
 zsrc = 100; %% z coordinate index of sources 
 xsrc = 70; %% x coordinate index of sources
 
-nsrc = 100; dsrc = 1; %% nsrc--number of sources; dsrc--sources interval in grid points;
+nsrc = 25; dsrc = 4; %% nsrc--number of sources; dsrc--sources interval in grid points;
 recordVideoFlag = 1;
 
 % receivers on a horizontal line at depth
@@ -21,7 +17,7 @@ model_ghost_flag = 1;
 
 %% MODEL
 % Model dimensions
-nx = 170; nz = 200; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
+nx = 370; nz = 200; %% nx-- numbers of x coordinate index, nz--numbers of z coordinate index
 dx = 10;    % [m] dx--interval of x coordinate index
 
 % Velocity
@@ -44,8 +40,6 @@ fsFlag = 0;
 dt2 = dt^2;
 
 upscale = 4; % decimates data for correlations
-
-
 min_wavelengh = 0.5*min(vp(vp>330))/f0;     % shortest wavelength bounded by velocity in the air
 
 
@@ -59,6 +53,7 @@ lmargin = [abs_thick abs_thick];
 rmargin = [abs_thick abs_thick];
 weights = ones(nz+2,nx+2);
 IT_DISPLAY = 10; % display every .. snapshot for test source location
+zsrcArr = dsrc*[1:nsrc] + abs_thick;
 
 opts = v2struct();
 
@@ -69,10 +64,11 @@ caxis(caxis()/50);
 %% generate VSP data
 opts.IT_DISPLAY = 100000; % don't display anything
 opts.fsFlag = 1;
+
+
 tic;
 parfor i=1:nsrc
-    zsrc = dsrc*i + abs_thick;
-    data_direct_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrc),1/upscale);
+    data_direct_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrcArr(i)),1/upscale);
 end
 disp('DIRECT WAVE DATA GENERATED');
 toc;
@@ -81,8 +77,7 @@ opts.vp(abs_thick+100:end,:) = 2500;
 opts.fsFlag = 0;
 tic;
 parfor i=1:nsrc
-    zsrc = dsrc*i + abs_thick;
-    data_ghost_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrc),1/upscale);
+    data_ghost_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrcArr(i)),1/upscale);
 end
 disp('GHOST NO FS DATA GENERATED');
 toc;
@@ -90,8 +85,7 @@ toc;
 opts.fsFlag = 1;
 tic;
 parfor i=1:nsrc
-    zsrc = dsrc*i + abs_thick;
-    data_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrc),1/upscale);
+    data_t_src_rec(:,i,:) = imresize(single_shot(opts, zsrcArr(i)),1/upscale);
 end
 disp('FULL DATA GENERATED');
 toc;
@@ -100,7 +94,7 @@ save('TRUE_DATA');
 
 %% correlating
 figure();
-
+newRecord = 1;
 load('TRUE_DATA');
 nt = size(data_t_src_rec,1);
 t = linspace(0,t_total,nt);
@@ -108,20 +102,18 @@ t = linspace(0,t_total,nt);
 data_new_t_s_r = zeros(2*size(data_t_src_rec,1)-1,size(data_t_src_rec,3),size(data_t_src_rec,3));
 last_source =0;
 
-if ~exist('vido','var')
+%if ~exist('vido','var')
     
-    vido = VideoWriter('blabla.avi');
-    
-    vido.FrameRate = 20;
-    open(vido);
-end
+    filename = 'virtualData.gif';
+   
+%end
 
 for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/upscale)
-    for i = 1:size(data_t_src_rec,3)
+    for i = [1:size(data_t_src_rec,3) * dx * upscale]
         t_src(i) = timeRefl(dx*new_sou*upscale, ...
-            i*dx*upscale, 1000, 2000);
+            i, 1000, 2000);
     end
-    for new_rec = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/upscale)
+    for new_rec = max(new_sou,round(abs_thick/upscale)):size(data_t_src_rec,3)-round(abs_thick/upscale)
         traces_direct = squeeze(data_direct_t_src_rec(:,:,new_sou));
         traces_full = squeeze(data_t_src_rec(:,:,new_rec));
         traces_refl = traces_full-data_direct_t_src_rec(:,:,new_rec);
@@ -130,22 +122,31 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
             data_new_t_s_r(:, new_sou, new_rec) = data_new_t_s_r(:, new_sou, new_rec) + ...
                 xcorr(nmz(traces_refl(:,real_rec)),nmz(traces_direct(:,real_rec)));
         end
-        if mod(new_rec, 10) == 0
-            figure(555);
-            subplot 121
-            imagesc([traces_full 10*traces_refl traces_direct]);% ...
-            title('Receiver gathers full, no direct, direct')
-            caxis(caxis()/10);
-            cax = caxis();
+        if mod(new_rec, 10) == 0 && mod(new_sou, 10) == 0
+            h = figure(555);
+            subplot 131
+            imagesc(t,[],[traces_direct 10*traces_refl ]');% ...
+            title('Direct from */ no direct from v')
+            caxis([-100 100])
+            hold on 
+            plot(t, nsrc+0.7*nsrc* ...
+                nmz(data_new_t_s_r(size(data_t_src_rec,1):end, new_sou, new_rec)), ...
+                'Color','r','LineWidth',2);
+            legend('virtual trace')
+            ylabel('Receiver depth (m)')
+            yticks([5 : 5 : 2*nsrc])
+            yticklabels(dx*dsrc*[[5:5:nsrc],[5:5:nsrc]])
+            xlabel('time (sec)')
             
-            subplot 122
-            imagesc([],t, ...
+            
+            subplot 132
+            imagesc(upscale*dx*[-1:size(data_new_t_s_r,3)-1],t, ...
                 squeeze(data_new_t_s_r(size(data_t_src_rec,1):end, ...
                 new_sou, :)));
             %caxis(cax);
             caxis auto
             caxis(caxis()/5);
-            title('New shot gather')
+            title('New shot gather for *')
             hold on
             
             plot(t_src,'LineWidth',2,'Color','r');
@@ -153,20 +154,56 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
             
             
             SP_well = opts.xsrc/upscale;
-            line([SP_well SP_well],get(gca,'YLim'),'Color','black','LineWidth',3)
+            line(upscale*dx*[SP_well SP_well],get(gca,'YLim'),'Color','black','LineWidth',3)
             
             SP=SP_well+3*(new_sou-SP_well);
-            line([SP SP],get(gca,'YLim'),'Color','g','LineWidth',3)
+            line(upscale*dx*[SP SP],get(gca,'YLim'),'Color','g','LineWidth',3)
             
-            line([new_sou new_sou],get(gca,'YLim'),'Color','r','LineWidth',1)
+            line(upscale*dx*[new_sou new_sou],get(gca,'YLim'),'Color','r','LineWidth',1)
+            
+            line(upscale*dx*[new_rec new_rec],get(gca,'YLim'),'Color','blue','LineWidth',1)
+            
+            legend('target reflection time', 'well location', 'ray coverage zone', 'shot', 'virtual receiver');
+            xlabel('x (m)')
+            ylabel('time (sec)')
+            
+            subplot 133
+            
+            imagesc(imresize(opts.vp,10,'nearest'));
+            caxis([1000 3000])
+            hold on
+    
+            scatter(dx*xsrc*ones(size(zsrcArr)), dx*zsrcArr, 20, 'black', 'v');
+            scatter(dx*new_sou*upscale, dx*(opts.rec_depth + abs_thick), 40, 'r', '*');            
+            scatter(dx*new_rec*upscale, dx*(opts.rec_depth + abs_thick), 40, 'b', 'v', 'filled');
+            
+            legend('real receivers', 'real shot', 'virtual receiver')
+            
+            %axis equal tight
+            title('Velocity')
+            xlabel('x (m)')
+            ylabel('z (m)')
+            
+            colorbar
             
             drawnow
+            set (gcf,'units','pixels','position',[1 1 1400 450])
             pause(0.01);
             
             if recordVideoFlag
                 
+                % Capture the plot as an image
                 frame = getframe(gcf);
-                writeVideo(vido,frame);
+                im = frame2im(frame);
+                [imind,cm] = rgb2ind(im,256);
+                % Write to the GIF File
+                if newRecord == 1
+                    imwrite(imind,cm,filename,'gif', 'Loopcount',inf);
+                    newRecord = 0;
+                else
+                    imwrite(imind,cm,filename,'gif','WriteMode','append','DelayTime',1);
+                end
+                
             end
             
         end
@@ -174,13 +211,12 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
     
     
 end
-close(vido);
 
 
 %%
 % normalizes the data and corrects geometrical spreading
 function nmzz = nmz(a)
-nmzz = a/(max(abs(a(:)))+10^-30) .* (1:length(a))'.^0.5 ;
+nmzz = a/(max(abs(a(:)))+10^-30);% geometrical spreading -> .* (1:length(a))'.^0.5 ;
 end
 
 function tr = timeRefl(xs, xr, refl_depth, vel)
@@ -284,7 +320,7 @@ for it = 1:nt
         fprintf('Time step: %d \t %.4f s\n',it, single(t(it)));
         imagesc(p3); colorbar;
         axis equal tight; colormap jet;
-        caxis([-10 10])
+        caxis([-100 100])
         title(['Step = ',num2str(it),'/',num2str(nt),', Time: ',sprintf('%.4f',t(it)),' sec']);
         drawnow;
         pause(0.1);
