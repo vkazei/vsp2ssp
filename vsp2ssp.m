@@ -22,13 +22,13 @@ nx = 370;                   % horizontal (x) grid size in grid points
 nz = 200;                   % vertical (z) grid size in grid points
 dx = 10;                    % [m] interval of x coordinate index
 
-
 % Velocity
 vp = 2000.0 * ones(nz, nx); % velocity of compressional waves, [m/s]
 
 %% Time stepping
 t_total = 3.0;              % [sec] recording duration
-dt = 2e-3;                  %[sec] time interval
+dt = 2e-3;                  % [sec] time interval
+upscale = 4;                % decimates data for correlations
 
 %% Source
 f0 = 10.0;                  % dominant frequency of the wavelet
@@ -39,10 +39,6 @@ x = xsrc;                   % source location along OX
 
 fsFlag = 0;
 dt2 = dt^2;
-
-upscale = 4;                % decimates data for correlations
-
-
 min_wavelengh = 0.5*min(vp(vp>330))/f0;     % shortest wavelength bounded by velocity in the air
 
 %% Absorbing boundary (ABS)
@@ -112,18 +108,14 @@ t = linspace(0,t_total,nt);
 data_new_t_s_r = zeros(2*nt-1, nrec, nrec);
 last_source =0;
 
-%if ~exist('vido','var')
-    
-    filename = 'virtualData.gif';
-   
-%end
+filename = 'virtualData.gif';
 
-for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/upscale)
-    for i = [1:size(data_t_src_rec,3) * dx * upscale]
+for new_sou = round(abs_thick/upscale):nrec-round(abs_thick/upscale)
+    for i = [1:nrec * dx * upscale]
         t_src(i) = timeRefl(dx*new_sou*upscale, ...
             i, 1000, 2000);
     end
-    for new_rec = max(new_sou,round(abs_thick/upscale)):size(data_t_src_rec,3)-round(abs_thick/upscale)
+    for new_rec = max(new_sou,round(abs_thick/upscale)):nrec-round(abs_thick/upscale)
         traces_direct = squeeze(data_direct_t_src_rec(:,:,new_sou));
         traces_full = squeeze(data_t_src_rec(:,:,new_rec));
         traces_refl = traces_full-data_direct_t_src_rec(:,:,new_rec);
@@ -140,68 +132,58 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
             caxis([-100 100])
             hold on 
             plot(t, nsrc+0.7*nsrc* ...
-                nmz(data_new_t_s_r(size(data_t_src_rec,1):end, new_sou, new_rec)), ...
+                nmz(data_new_t_s_r(nt:end, new_sou, new_rec)), ...
                 'Color','r','LineWidth',2);
             legend('virtual trace')
             ylabel('Receiver depth (m)')
             yticks([5 : 5 : 2*nsrc])
             yticklabels(dx*dsrc*[[5:5:nsrc],[5:5:nsrc]])
-            xlabel('time (sec)')
+            xlabel('time (sec)');            
             
-            
-            subplot 132
-            imagesc(upscale*dx*[-1:size(data_new_t_s_r,3)-1],t, ...
-                squeeze(data_new_t_s_r(size(data_t_src_rec,1):end, ...
+            subplot 132;
+            imagesc(upscale*dx*[-1:nrec-1],t, ...
+                squeeze(data_new_t_s_r(nt:end, ...
                 new_sou, :)));
-            %caxis(cax);
-            caxis auto
+            caxis auto;
             caxis(caxis()/5);
-            title('New shot gather for *')
-            hold on
+            title('New shot gather for *');
+            hold on;
             
             plot(t_src,'LineWidth',2,'Color','r');
-            
-            
             
             SP_well = opts.xsrc/upscale;
             line(upscale*dx*[SP_well SP_well],get(gca,'YLim'),'Color','black','LineWidth',3)
             
             SP=SP_well+3*(new_sou-SP_well);
-            line(upscale*dx*[SP SP],get(gca,'YLim'),'Color','g','LineWidth',3)
-            
-            line(upscale*dx*[new_sou new_sou],get(gca,'YLim'),'Color','r','LineWidth',1)
-            
-            line(upscale*dx*[new_rec new_rec],get(gca,'YLim'),'Color','blue','LineWidth',1)
+            line(upscale*dx*[SP SP],get(gca,'YLim'),'Color','g','LineWidth',3); 
+            line(upscale*dx*[new_sou new_sou],get(gca,'YLim'),'Color','r','LineWidth',1);            
+            line(upscale*dx*[new_rec new_rec],get(gca,'YLim'),'Color','blue','LineWidth',1);
             
             legend('target reflection time', 'well location', 'ray coverage zone', 'shot', 'virtual receiver');
-            xlabel('x (m)')
-            ylabel('time (sec)')
+            xlabel('x (m)');
+            ylabel('time (sec)');
             
-            subplot 133
-            
+            subplot 133;
             imagesc(imresize(opts.vp,10,'nearest'));
-            caxis([1000 3000])
-            hold on
+            caxis([1000 3000]);
+            hold on;
     
             scatter(dx*xsrc*ones(size(zsrcArr)), dx*zsrcArr, 20, 'black', 'v');
             scatter(dx*new_sou*upscale, dx*(opts.rec_depth + abs_thick), 40, 'r', '*');            
             scatter(dx*new_rec*upscale, dx*(opts.rec_depth + abs_thick), 40, 'b', 'v', 'filled');
             
-            legend('real receivers', 'real shot', 'virtual receiver')
+            legend('real receivers', 'real shot', 'virtual receiver');
             
             %axis equal tight
-            title('Velocity')
-            xlabel('x (m)')
-            ylabel('z (m)')
-            
-            colorbar
-            
-            drawnow
-            set (gcf,'units','pixels','position',[1 1 1400 450])
+            title('Velocity');
+            xlabel('x (m)');
+            ylabel('z (m)');
+            colorbar;
+            drawnow;
+            set(gcf,'units','pixels','position',[1 1 1400 450]);
             pause(0.01);
             
             if recordVideoFlag
-                
                 % Capture the plot as an image
                 frame = getframe(gcf);
                 im = frame2im(frame);
@@ -213,9 +195,7 @@ for new_sou = round(abs_thick/upscale):size(data_t_src_rec,3)-round(abs_thick/up
                 else
                     imwrite(imind,cm,filename,'gif','WriteMode','append','DelayTime',1);
                 end
-                
-            end
-            
+            end            
         end
     end
 end
